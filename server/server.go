@@ -13,15 +13,23 @@ import (
 	"time"
 
 	"github.com/alexliesenfeld/health"
+	"github.com/go-playground/locales/en"
+	ut "github.com/go-playground/universal-translator"
+	"github.com/go-playground/validator/v10"
+	en_translations "github.com/go-playground/validator/v10/translations/en"
+	"github.com/mrityunjaygr8/clean/entities"
 	"github.com/sirupsen/logrus"
 )
 
 type Application struct {
-	db     *sql.DB
-	logger *logrus.Logger
-	config ServerConf
-	wg     sync.WaitGroup
-	health health.Checker
+	db        *sql.DB
+	logger    *logrus.Logger
+	config    ServerConf
+	wg        sync.WaitGroup
+	health    health.Checker
+	entities  entities.Entities
+	validator *validator.Validate
+	trans     ut.Translator
 }
 
 type ServerConf struct {
@@ -31,10 +39,19 @@ type ServerConf struct {
 
 func New(logger *logrus.Logger, db *sql.DB, srvConf ServerConf) *Application {
 	a := &Application{
-		logger: logger,
-		db:     db,
-		config: srvConf,
+		logger:    logger,
+		db:        db,
+		config:    srvConf,
+		entities:  entities.New(db),
+		validator: validator.New(),
 	}
+
+	en := en.New()
+	uni := ut.New(en, en)
+
+	a.trans, _ = uni.GetTranslator("en")
+
+	en_translations.RegisterDefaultTranslations(a.validator, a.trans)
 
 	return a
 }

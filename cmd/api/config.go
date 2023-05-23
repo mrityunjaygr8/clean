@@ -43,7 +43,7 @@ func getConfig(logger *logrus.Logger) (config, error) {
 
 	viper.SetConfigName(".env")
 	viper.SetConfigType("env")
-	// viper.AddConfigPath(".")
+	viper.AddConfigPath(".")
 
 	viper.SetEnvPrefix("vlcm")
 

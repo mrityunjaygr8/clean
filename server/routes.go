@@ -47,6 +47,9 @@ func (a *Application) routes() http.Handler {
 
 	})
 
+	router.Post("/abstractUser", a.AddAbstractUser)
+	router.Get("/abstractUser", a.ListAbstractUsers)
+
 	router.Get("/health", health.NewHandler(a.health))
 
 	return router

@@ -6,7 +6,7 @@ import (
 	"os"
 
 	_ "github.com/lib/pq"
-	"github.com/mrityunjaygr8/vlcm-go/server"
+	"github.com/mrityunjaygr8/clean/server"
 	"github.com/sirupsen/logrus"
 )
 
@@ -14,7 +14,7 @@ func main() {
 	logger := &logrus.Logger{
 		Out:       os.Stdout,
 		Hooks:     make(logrus.LevelHooks),
-		Formatter: new(logrus.JSONFormatter),
+		Formatter: new(logrus.TextFormatter),
 		Level:     logrus.DebugLevel,
 	}
 
