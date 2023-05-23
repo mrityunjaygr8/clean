@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/friendsofgo/errors"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -24,10 +23,10 @@ import (
 
 // AdminUser is an object representing the database table.
 type AdminUser struct {
-	ID         string    `boil:"id" json:"id" toml:"id" yaml:"id"`
-	InternalID int       `boil:"internal_id" json:"internal_id" toml:"internal_id" yaml:"internal_id"`
-	UserID     int       `boil:"user_id" json:"user_id" toml:"user_id" yaml:"user_id"`
-	Admin      null.Bool `boil:"admin" json:"admin,omitempty" toml:"admin" yaml:"admin,omitempty"`
+	ID         string `boil:"id" json:"id" toml:"id" yaml:"id"`
+	InternalID int    `boil:"internal_id" json:"internal_id" toml:"internal_id" yaml:"internal_id"`
+	UserID     int    `boil:"user_id" json:"user_id" toml:"user_id" yaml:"user_id"`
+	Admin      bool   `boil:"admin" json:"admin" toml:"admin" yaml:"admin"`
 
 	R *adminUserR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L adminUserL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -59,40 +58,25 @@ var AdminUserTableColumns = struct {
 
 // Generated where
 
-type whereHelpernull_Bool struct{ field string }
+type whereHelperbool struct{ field string }
 
-func (w whereHelpernull_Bool) EQ(x null.Bool) qm.QueryMod {
-	return qmhelper.WhereNullEQ(w.field, false, x)
-}
-func (w whereHelpernull_Bool) NEQ(x null.Bool) qm.QueryMod {
-	return qmhelper.WhereNullEQ(w.field, true, x)
-}
-func (w whereHelpernull_Bool) LT(x null.Bool) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LT, x)
-}
-func (w whereHelpernull_Bool) LTE(x null.Bool) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LTE, x)
-}
-func (w whereHelpernull_Bool) GT(x null.Bool) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GT, x)
-}
-func (w whereHelpernull_Bool) GTE(x null.Bool) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GTE, x)
-}
-
-func (w whereHelpernull_Bool) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
-func (w whereHelpernull_Bool) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
+func (w whereHelperbool) EQ(x bool) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
+func (w whereHelperbool) NEQ(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
+func (w whereHelperbool) LT(x bool) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
+func (w whereHelperbool) LTE(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
+func (w whereHelperbool) GT(x bool) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
+func (w whereHelperbool) GTE(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
 
 var AdminUserWhere = struct {
 	ID         whereHelperstring
 	InternalID whereHelperint
 	UserID     whereHelperint
-	Admin      whereHelpernull_Bool
+	Admin      whereHelperbool
 }{
 	ID:         whereHelperstring{field: "\"admin_users\".\"id\""},
 	InternalID: whereHelperint{field: "\"admin_users\".\"internal_id\""},
 	UserID:     whereHelperint{field: "\"admin_users\".\"user_id\""},
-	Admin:      whereHelpernull_Bool{field: "\"admin_users\".\"admin\""},
+	Admin:      whereHelperbool{field: "\"admin_users\".\"admin\""},
 }
 
 // AdminUserRels is where relationship names are stored.
