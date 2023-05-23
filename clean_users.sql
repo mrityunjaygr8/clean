@@ -48,15 +48,15 @@ CREATE TABLE "assets" (
   "team" varchar
 );
 
-ALTER TABLE "tokens" ADD FOREIGN KEY ("user") REFERENCES "abstract_users" ("internal_id");
+ALTER TABLE "tokens" ADD CONSTRAINT "fk_token_abstract_user" FOREIGN KEY ("user") REFERENCES "abstract_users" ("internal_id");
 
-ALTER TABLE "admin_users" ADD FOREIGN KEY ("user_id") REFERENCES "abstract_users" ("internal_id");
+ALTER TABLE "admin_users" ADD CONSTRAINT "fk_admin_users_abstract_users" FOREIGN KEY ("user_id") REFERENCES "abstract_users" ("internal_id");
 
-ALTER TABLE "org_users" ADD FOREIGN KEY ("user_id") REFERENCES "abstract_users" ("internal_id");
+ALTER TABLE "org_users" ADD CONSTRAINT "fk_org_users_abstract_users" FOREIGN KEY ("user_id") REFERENCES "abstract_users" ("internal_id");
 
-ALTER TABLE "org_users" ADD FOREIGN KEY ("org_id") REFERENCES "orgs" ("internal_id");
+ALTER TABLE "org_users" ADD CONSTRAINT "fk_org_users_orgs" FOREIGN KEY ("org_id") REFERENCES "orgs" ("internal_id");
 
-ALTER TABLE "teams" ADD FOREIGN KEY ("org_id") REFERENCES "orgs" ("internal_id");
+ALTER TABLE "teams" ADD CONSTRAINT "fk_teams_orgs" FOREIGN KEY ("org_id") REFERENCES "orgs" ("internal_id");
 
 CREATE TABLE "org_users_teams" (
   "org_users_internal_id" serial,
@@ -64,9 +64,9 @@ CREATE TABLE "org_users_teams" (
   PRIMARY KEY ("org_users_internal_id", "teams_members")
 );
 
-ALTER TABLE "org_users_teams" ADD FOREIGN KEY ("org_users_internal_id") REFERENCES "org_users" ("internal_id");
+ALTER TABLE "org_users_teams" ADD CONSTRAINT "fk_org_users_teams_org_users" FOREIGN KEY ("org_users_internal_id") REFERENCES "org_users" ("internal_id");
 
-ALTER TABLE "org_users_teams" ADD FOREIGN KEY ("teams_members") REFERENCES "teams" ("members");
+ALTER TABLE "org_users_teams" ADD CONSTRAINT "fk_org_users_teams_teams" ADD FOREIGN KEY ("teams_members") REFERENCES "teams" ("members");
 
 
-ALTER TABLE "assets" ADD FOREIGN KEY ("team") REFERENCES "teams" ("internal_id");
+ALTER TABLE "assets" ADD CONSTRAINT "fk_assets_teams" FOREIGN KEY ("team") REFERENCES "teams" ("internal_id");
