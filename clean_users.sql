@@ -1,6 +1,6 @@
 CREATE TABLE "abstract_users" (
   "id" varchar PRIMARY KEY NOT NULL,
-  "internal_id" serial NOT NULL,
+  "internal_id" serial NOT NULL UNIQUE,
   "email" varchar UNIQUE NOT NULL,
   "password" varchar NOT NULL
 );
@@ -15,35 +15,35 @@ CREATE TABLE "tokens" (
 
 CREATE TABLE "admin_users" (
   "id" varchar PRIMARY KEY NOT NULL,
-  "internal_id" serial NOT NULL,
+  "internal_id" serial NOT NULL UNIQUE,
   "user_id" varchar,
   "admin" bool DEFAULT false
 );
 
 CREATE TABLE "orgs" (
-  "internal_id" serial NOT NULL,
+  "internal_id" serial NOT NULL UNIQUE,
   "id" varchar PRIMARY KEY NOT NULL,
   "name" varchar NOT NULL
 );
 
 CREATE TABLE "org_users" (
   "id" varchar PRIMARY KEY NOT NULL,
-  "internal_id" serial NOT NULL,
-  "user_id" varchar,
+  "internal_id" serial NOT NULL UNIQUE,
+  "user_id" serial,
   "admin" bool DEFAULT false,
   "org_id" varchar
 );
 
 CREATE TABLE "teams" (
   "id" varchar PRIMARY KEY NOT NULL,
-  "internal_id" serial NOT NULL,
+  "internal_id" serial NOT NULL UNIQUE,
   "org_id" varchar,
   "members" varchar
 );
 
 CREATE TABLE "assets" (
   "unique_id" varchar PRIMARY KEY NOT NULL,
-  "internal_id" serial NOT NULL,
+  "internal_id" serial NOT NULL UNIQUE,
   "host" varchar NOT NULL,
   "team" varchar
 );
