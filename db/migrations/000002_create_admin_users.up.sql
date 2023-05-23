@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS "admin_users" (
   "id" varchar PRIMARY KEY NOT NULL,
-  "internal_id" serial NOT NULL,
-  "user_id" varchar,
+  "internal_id" serial NOT NULL UNIQUE,
+  "user_id" serial,
   "admin" bool DEFAULT false
 );
 
