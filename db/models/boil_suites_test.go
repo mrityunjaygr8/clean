@@ -13,69 +13,84 @@ import "testing"
 // Separating the tests thusly grants avoidance of Postgres deadlocks.
 func TestParent(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsers)
+	t.Run("AdminUsers", testAdminUsers)
 	t.Run("SchemaMigrations", testSchemaMigrations)
 }
 
 func TestDelete(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersDelete)
+	t.Run("AdminUsers", testAdminUsersDelete)
 	t.Run("SchemaMigrations", testSchemaMigrationsDelete)
 }
 
 func TestQueryDeleteAll(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersQueryDeleteAll)
+	t.Run("AdminUsers", testAdminUsersQueryDeleteAll)
 	t.Run("SchemaMigrations", testSchemaMigrationsQueryDeleteAll)
 }
 
 func TestSliceDeleteAll(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersSliceDeleteAll)
+	t.Run("AdminUsers", testAdminUsersSliceDeleteAll)
 	t.Run("SchemaMigrations", testSchemaMigrationsSliceDeleteAll)
 }
 
 func TestExists(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersExists)
+	t.Run("AdminUsers", testAdminUsersExists)
 	t.Run("SchemaMigrations", testSchemaMigrationsExists)
 }
 
 func TestFind(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersFind)
+	t.Run("AdminUsers", testAdminUsersFind)
 	t.Run("SchemaMigrations", testSchemaMigrationsFind)
 }
 
 func TestBind(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersBind)
+	t.Run("AdminUsers", testAdminUsersBind)
 	t.Run("SchemaMigrations", testSchemaMigrationsBind)
 }
 
 func TestOne(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersOne)
+	t.Run("AdminUsers", testAdminUsersOne)
 	t.Run("SchemaMigrations", testSchemaMigrationsOne)
 }
 
 func TestAll(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersAll)
+	t.Run("AdminUsers", testAdminUsersAll)
 	t.Run("SchemaMigrations", testSchemaMigrationsAll)
 }
 
 func TestCount(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersCount)
+	t.Run("AdminUsers", testAdminUsersCount)
 	t.Run("SchemaMigrations", testSchemaMigrationsCount)
 }
 
 func TestHooks(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersHooks)
+	t.Run("AdminUsers", testAdminUsersHooks)
 	t.Run("SchemaMigrations", testSchemaMigrationsHooks)
 }
 
 func TestInsert(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersInsert)
 	t.Run("AbstractUsers", testAbstractUsersInsertWhitelist)
+	t.Run("AdminUsers", testAdminUsersInsert)
+	t.Run("AdminUsers", testAdminUsersInsertWhitelist)
 	t.Run("SchemaMigrations", testSchemaMigrationsInsert)
 	t.Run("SchemaMigrations", testSchemaMigrationsInsertWhitelist)
 }
 
 // TestToOne tests cannot be run in parallel
 // or deadlocks can occur.
-func TestToOne(t *testing.T) {}
+func TestToOne(t *testing.T) {
+	t.Run("AdminUserToAbstractUserUsingUser", testAdminUserToOneAbstractUserUsingUser)
+}
 
 // TestOneToOne tests cannot be run in parallel
 // or deadlocks can occur.
@@ -83,11 +98,15 @@ func TestOneToOne(t *testing.T) {}
 
 // TestToMany tests cannot be run in parallel
 // or deadlocks can occur.
-func TestToMany(t *testing.T) {}
+func TestToMany(t *testing.T) {
+	t.Run("AbstractUserToUserAdminUsers", testAbstractUserToManyUserAdminUsers)
+}
 
 // TestToOneSet tests cannot be run in parallel
 // or deadlocks can occur.
-func TestToOneSet(t *testing.T) {}
+func TestToOneSet(t *testing.T) {
+	t.Run("AdminUserToAbstractUserUsingUserAdminUsers", testAdminUserToOneSetOpAbstractUserUsingUser)
+}
 
 // TestToOneRemove tests cannot be run in parallel
 // or deadlocks can occur.
@@ -103,7 +122,9 @@ func TestOneToOneRemove(t *testing.T) {}
 
 // TestToManyAdd tests cannot be run in parallel
 // or deadlocks can occur.
-func TestToManyAdd(t *testing.T) {}
+func TestToManyAdd(t *testing.T) {
+	t.Run("AbstractUserToUserAdminUsers", testAbstractUserToManyAddOpUserAdminUsers)
+}
 
 // TestToManySet tests cannot be run in parallel
 // or deadlocks can occur.
@@ -115,25 +136,30 @@ func TestToManyRemove(t *testing.T) {}
 
 func TestReload(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersReload)
+	t.Run("AdminUsers", testAdminUsersReload)
 	t.Run("SchemaMigrations", testSchemaMigrationsReload)
 }
 
 func TestReloadAll(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersReloadAll)
+	t.Run("AdminUsers", testAdminUsersReloadAll)
 	t.Run("SchemaMigrations", testSchemaMigrationsReloadAll)
 }
 
 func TestSelect(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersSelect)
+	t.Run("AdminUsers", testAdminUsersSelect)
 	t.Run("SchemaMigrations", testSchemaMigrationsSelect)
 }
 
 func TestUpdate(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersUpdate)
+	t.Run("AdminUsers", testAdminUsersUpdate)
 	t.Run("SchemaMigrations", testSchemaMigrationsUpdate)
 }
 
 func TestSliceUpdateAll(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersSliceUpdateAll)
+	t.Run("AdminUsers", testAdminUsersSliceUpdateAll)
 	t.Run("SchemaMigrations", testSchemaMigrationsSliceUpdateAll)
 }

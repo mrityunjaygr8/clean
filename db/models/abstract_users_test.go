@@ -494,6 +494,160 @@ func testAbstractUsersInsertWhitelist(t *testing.T) {
 	}
 }
 
+func testAbstractUserToManyUserAdminUsers(t *testing.T) {
+	var err error
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a AbstractUser
+	var b, c AdminUser
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, abstractUserDBTypes, true, abstractUserColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AbstractUser struct: %s", err)
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = randomize.Struct(seed, &b, adminUserDBTypes, false, adminUserColumnsWithDefault...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &c, adminUserDBTypes, false, adminUserColumnsWithDefault...); err != nil {
+		t.Fatal(err)
+	}
+
+	b.UserID = a.InternalID
+	c.UserID = a.InternalID
+
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	check, err := a.UserAdminUsers().All(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bFound, cFound := false, false
+	for _, v := range check {
+		if v.UserID == b.UserID {
+			bFound = true
+		}
+		if v.UserID == c.UserID {
+			cFound = true
+		}
+	}
+
+	if !bFound {
+		t.Error("expected to find b")
+	}
+	if !cFound {
+		t.Error("expected to find c")
+	}
+
+	slice := AbstractUserSlice{&a}
+	if err = a.L.LoadUserAdminUsers(ctx, tx, false, (*[]*AbstractUser)(&slice), nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(a.R.UserAdminUsers); got != 2 {
+		t.Error("number of eager loaded records wrong, got:", got)
+	}
+
+	a.R.UserAdminUsers = nil
+	if err = a.L.LoadUserAdminUsers(ctx, tx, true, &a, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(a.R.UserAdminUsers); got != 2 {
+		t.Error("number of eager loaded records wrong, got:", got)
+	}
+
+	if t.Failed() {
+		t.Logf("%#v", check)
+	}
+}
+
+func testAbstractUserToManyAddOpUserAdminUsers(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a AbstractUser
+	var b, c, d, e AdminUser
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, abstractUserDBTypes, false, strmangle.SetComplement(abstractUserPrimaryKeyColumns, abstractUserColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	foreigners := []*AdminUser{&b, &c, &d, &e}
+	for _, x := range foreigners {
+		if err = randomize.Struct(seed, x, adminUserDBTypes, false, strmangle.SetComplement(adminUserPrimaryKeyColumns, adminUserColumnsWithoutDefault)...); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	foreignersSplitByInsertion := [][]*AdminUser{
+		{&b, &c},
+		{&d, &e},
+	}
+
+	for i, x := range foreignersSplitByInsertion {
+		err = a.AddUserAdminUsers(ctx, tx, i != 0, x...)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		first := x[0]
+		second := x[1]
+
+		if a.InternalID != first.UserID {
+			t.Error("foreign key was wrong value", a.InternalID, first.UserID)
+		}
+		if a.InternalID != second.UserID {
+			t.Error("foreign key was wrong value", a.InternalID, second.UserID)
+		}
+
+		if first.R.User != &a {
+			t.Error("relationship was not added properly to the foreign slice")
+		}
+		if second.R.User != &a {
+			t.Error("relationship was not added properly to the foreign slice")
+		}
+
+		if a.R.UserAdminUsers[i*2] != first {
+			t.Error("relationship struct slice not set to correct value")
+		}
+		if a.R.UserAdminUsers[i*2+1] != second {
+			t.Error("relationship struct slice not set to correct value")
+		}
+
+		count, err := a.UserAdminUsers().Count(ctx, tx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := int64((i + 1) * 2); count != want {
+			t.Error("want", want, "got", count)
+		}
+	}
+}
+
 func testAbstractUsersReload(t *testing.T) {
 	t.Parallel()
 
