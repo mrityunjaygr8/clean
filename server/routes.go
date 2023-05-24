@@ -57,6 +57,14 @@ func (a *Application) routes() http.Handler {
 	router.Put("/adminUser/{adminUserId}", a.handleAdminUserUpdate())
 	router.Post("/adminUser/{adminUserId}/password", a.handleAdminUserUpdatePassword())
 
+	router.Post("/auth/login", a.handleAuthLogin())
+
+	router.Post("/orgs", a.handleOrgCreate())
+	router.Get("/orgs", a.handleOrgList())
+
+	router.Post("/orgs/{orgId}/users", a.handleOrgUserCreate())
+	router.Get("/orgs/{orgId}/users", a.handleOrgUserList())
+
 	router.Get("/health", health.NewHandler(a.health))
 
 	return router
