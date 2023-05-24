@@ -46,7 +46,7 @@ func (a *Application) handleAdminUserCreate() http.HandlerFunc {
 				errResp[e.Field()] = e.Translate(a.trans)
 			}
 
-			a.writeJSON(w, http.StatusInternalServerError, envelope{"errors": errResp}, nil)
+			a.writeJSON(w, http.StatusBadRequest, envelope{"errors": errResp}, nil)
 
 			return
 		}
@@ -331,7 +331,7 @@ func (a *Application) handleAdminUserDelete() http.HandlerFunc {
 
 func (a *Application) handleAdminUserUpdate() http.HandlerFunc {
 	type request struct {
-		Admin bool `json:"admin"`
+		Admin bool `json:"admin" validate:"required,boolean"`
 	}
 
 	type response struct {
@@ -352,6 +352,17 @@ func (a *Application) handleAdminUserUpdate() http.HandlerFunc {
 				a.writeJSON(w, http.StatusBadRequest, envelope{"error": "The request contains unknown fields"}, nil)
 				return
 			}
+		}
+		err = a.validator.Struct(req)
+		if err != nil {
+			errResp := make(map[string]interface{})
+			for _, e := range err.(validator.ValidationErrors) {
+				errResp[e.Field()] = e.Translate(a.trans)
+			}
+
+			a.writeJSON(w, http.StatusBadRequest, envelope{"errors": errResp}, nil)
+
+			return
 		}
 
 		adms, err := dbmodels.AdminUsers(dbmodels.AdminUserWhere.ID.EQ(id), qm.Load(qm.Rels(dbmodels.AdminUserRels.User))).All(r.Context(), a.db)
@@ -423,7 +434,7 @@ func (a *Application) handleAdminUserUpdate() http.HandlerFunc {
 
 func (a *Application) handleAdminUserUpdatePassword() http.HandlerFunc {
 	type request struct {
-		Password string `json:"password"`
+		Password string `json:"password" validate:"required"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "adminUserId")
@@ -437,6 +448,17 @@ func (a *Application) handleAdminUserUpdatePassword() http.HandlerFunc {
 				a.writeJSON(w, http.StatusBadRequest, envelope{"error": "The request contains unknown fields"}, nil)
 				return
 			}
+		}
+		err = a.validator.Struct(req)
+		if err != nil {
+			errResp := make(map[string]interface{})
+			for _, e := range err.(validator.ValidationErrors) {
+				errResp[e.Field()] = e.Translate(a.trans)
+			}
+
+			a.writeJSON(w, http.StatusBadRequest, envelope{"errors": errResp}, nil)
+
+			return
 		}
 
 		adms, err := dbmodels.AdminUsers(dbmodels.AdminUserWhere.ID.EQ(id), qm.Load(qm.Rels(dbmodels.AdminUserRels.User))).All(r.Context(), a.db)
