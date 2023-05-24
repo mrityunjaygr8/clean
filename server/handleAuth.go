@@ -7,11 +7,10 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	dbmodels "github.com/mrityunjaygr8/clean/db/models"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 )
 
-func (a *Application) handleAuthLogin() http.HandlerFunc {
+func (a *Server) handleAuthLogin() http.HandlerFunc {
 	type request struct {
 		Email    string `json:"email" validate:"required,email"`
 		Password string `json:"password" validate:"required"`
@@ -29,7 +28,7 @@ func (a *Application) handleAuthLogin() http.HandlerFunc {
 
 		err := a.readJSON(w, r, &req)
 		if err != nil {
-			a.logger.Errorln(err)
+			a.l.Error().Err(err).Msg("")
 			if strings.Contains(err.Error(), "unknown field") {
 				a.writeJSON(w, http.StatusBadRequest, envelope{"error": "The request contains unknown fields"}, nil)
 				return
@@ -49,10 +48,7 @@ func (a *Application) handleAuthLogin() http.HandlerFunc {
 
 		abu, err := dbmodels.AbstractUsers(dbmodels.AbstractUserWhere.Email.EQ(req.Email)).All(r.Context(), a.db)
 		if err != nil {
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error admin abstract user lookup",
-				"email":      req.Email,
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error admin abstract user lookup").Str("email", req.Email).Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -63,10 +59,7 @@ func (a *Application) handleAuthLogin() http.HandlerFunc {
 		}
 
 		if len(abu) > 1 {
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error multiple abstract users with email",
-				"email":      req.Email,
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error multiple abstract users with email").Str("email", req.Email).Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -80,15 +73,10 @@ func (a *Application) handleAuthLogin() http.HandlerFunc {
 				return
 			}
 
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error comparing password hash",
-				"email":      req.Email,
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error comparing password hash").Str("email", req.Email).Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
-
-		a.logger.Println(ab.R.GetUserAdminUsers())
 
 		a.writeJSON(w, http.StatusOK, envelope{"status": "ok"}, nil)
 	}

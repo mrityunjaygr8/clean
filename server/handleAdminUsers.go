@@ -10,14 +10,13 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
 	dbmodels "github.com/mrityunjaygr8/clean/db/models"
-	"github.com/sirupsen/logrus"
 	"github.com/teris-io/shortid"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 	"golang.org/x/crypto/bcrypt"
 )
 
-func (a *Application) handleAdminUserCreate() http.HandlerFunc {
+func (a *Server) handleAdminUserCreate() http.HandlerFunc {
 	type request struct {
 		Password string `json:"password" validate:"required"`
 		Email    string `json:"email" validate:"required,email"`
@@ -33,7 +32,7 @@ func (a *Application) handleAdminUserCreate() http.HandlerFunc {
 
 		err := a.readJSON(w, r, &req)
 		if err != nil {
-			a.logger.Errorln(err)
+			a.l.Error().Err(err).Msg("")
 			if strings.Contains(err.Error(), "unknown field") {
 				a.writeJSON(w, http.StatusBadRequest, envelope{"error": "The request contains unknown fields"}, nil)
 				return
@@ -53,9 +52,7 @@ func (a *Application) handleAdminUserCreate() http.HandlerFunc {
 
 		tx, err := a.db.BeginTx(r.Context(), &sql.TxOptions{})
 		if err != nil {
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error creating transaction",
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error creating transaction").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -64,24 +61,18 @@ func (a *Application) handleAdminUserCreate() http.HandlerFunc {
 		if err != nil {
 			txRollErr := tx.Rollback()
 			if txRollErr != nil {
-				a.logger.WithFields(logrus.Fields{
-					"error-type": "error rolling back transaction",
-				}).Errorln(txRollErr)
+				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
 				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 				return
 			}
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error checking if abstract user exists",
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error checking if abstract user exists").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
 		if exists {
 			txRollErr := tx.Rollback()
 			if txRollErr != nil {
-				a.logger.WithFields(logrus.Fields{
-					"error-type": "error rolling back transaction",
-				}).Errorln(txRollErr)
+				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
 				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 				return
 			}
@@ -95,15 +86,11 @@ func (a *Application) handleAdminUserCreate() http.HandlerFunc {
 		if err != nil {
 			txRollErr := tx.Rollback()
 			if txRollErr != nil {
-				a.logger.WithFields(logrus.Fields{
-					"error-type": "error rolling back transaction",
-				}).Errorln(txRollErr)
+				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
 				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 				return
 			}
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error creating abstract id",
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error creating abstract id").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -113,15 +100,11 @@ func (a *Application) handleAdminUserCreate() http.HandlerFunc {
 		if err != nil {
 			txRollErr := tx.Rollback()
 			if txRollErr != nil {
-				a.logger.WithFields(logrus.Fields{
-					"error-type": "error rolling back transaction",
-				}).Errorln(txRollErr)
+				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
 				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 				return
 			}
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error creating hash from raw password",
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error creating hash from raw password").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -132,15 +115,11 @@ func (a *Application) handleAdminUserCreate() http.HandlerFunc {
 		if err != nil {
 			txRollErr := tx.Rollback()
 			if txRollErr != nil {
-				a.logger.WithFields(logrus.Fields{
-					"error-type": "error rolling back transaction",
-				}).Errorln(txRollErr)
+				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
 				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 				return
 			}
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error inserting abstract user",
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error inserting abstract user").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -152,15 +131,11 @@ func (a *Application) handleAdminUserCreate() http.HandlerFunc {
 		if err != nil {
 			txRollErr := tx.Rollback()
 			if txRollErr != nil {
-				a.logger.WithFields(logrus.Fields{
-					"error-type": "error rolling back transaction",
-				}).Errorln(txRollErr)
+				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
 				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 				return
 			}
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error creating admin id",
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error creating admin id").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -172,23 +147,17 @@ func (a *Application) handleAdminUserCreate() http.HandlerFunc {
 		if err != nil {
 			txRollErr := tx.Rollback()
 			if txRollErr != nil {
-				a.logger.WithFields(logrus.Fields{
-					"error-type": "error rolling back transaction",
-				}).Errorln(txRollErr)
+				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
 				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 				return
 			}
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error inserting admin user",
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error inserting admin user").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
 		txCommitErr := tx.Commit()
 		if txCommitErr != nil {
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error committing transaction",
-			}).Errorln(txCommitErr)
+			a.l.Error().Str("error-type", "error committing transaction").Err(txCommitErr).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -203,7 +172,7 @@ func (a *Application) handleAdminUserCreate() http.HandlerFunc {
 	}
 }
 
-func (a *Application) handleAdminUserList() http.HandlerFunc {
+func (a *Server) handleAdminUserList() http.HandlerFunc {
 	type adminUser struct {
 		Email string `json:"email"`
 		Id    string `json:"id"`
@@ -215,9 +184,10 @@ func (a *Application) handleAdminUserList() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		adms := make([]adminUser, 0)
 
-		adminUsers, err := dbmodels.AdminUsers(qm.Load(qm.Rels(dbmodels.AdminUserRels.User))).All(r.Context(), a.db)
+		// qm.Load(qm.Rels(dbmodels.AdminUserRels.User))
+		adminUsers, err := dbmodels.AdminUsers().All(r.Context(), a.db)
 		if err != nil {
-			a.logger.WithFields(logrus.Fields{"error-type": "error listing admin users"}).Errorln(err)
+			a.l.Error().Str("error-type", "error listing admin users").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
 			return
 		}
@@ -235,7 +205,7 @@ func (a *Application) handleAdminUserList() http.HandlerFunc {
 	}
 }
 
-func (a *Application) handleAdminUserRetrieve() http.HandlerFunc {
+func (a *Server) handleAdminUserRetrieve() http.HandlerFunc {
 	type response struct {
 		Email string `json:"email"`
 		Id    string `json:"id"`
@@ -250,7 +220,7 @@ func (a *Application) handleAdminUserRetrieve() http.HandlerFunc {
 				return
 
 			}
-			a.logger.WithFields(logrus.Fields{"error-type": "error retrieving admin users", "admin-user-id": id}).Errorln(err)
+			a.l.Error().Str("error-type", "error retrieving admin users").Str("admin-user-id", id).Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
 			return
 		}
@@ -265,13 +235,13 @@ func (a *Application) handleAdminUserRetrieve() http.HandlerFunc {
 	}
 }
 
-func (a *Application) handleAdminUserDelete() http.HandlerFunc {
+func (a *Server) handleAdminUserDelete() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "adminUserId")
 
 		adms, err := dbmodels.AdminUsers(dbmodels.AdminUserWhere.ID.EQ(id), qm.Load(qm.Rels(dbmodels.AdminUserRels.User))).All(r.Context(), a.db)
 		if err != nil {
-			a.logger.WithFields(logrus.Fields{"error-type": "error counting admin users", "admin-user-id": id}).Errorln(err)
+			a.l.Error().Str("error-type", "error counting admin users").Str("admin-user-id", id).Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
 			return
 		}
@@ -282,10 +252,7 @@ func (a *Application) handleAdminUserDelete() http.HandlerFunc {
 		}
 
 		if len(adms) > 1 {
-			a.logger.WithFields(logrus.Fields{
-				"error-type":    "error id collision",
-				"admin-user-id": id,
-			}).Errorln(errors.New("admin user id collision"))
+			a.l.Error().Str("error-type", "error id collision").Str("admin-user-id", id).Err(errors.New("admin user id collision")).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -296,31 +263,27 @@ func (a *Application) handleAdminUserDelete() http.HandlerFunc {
 
 		tx, err := a.db.BeginTx(r.Context(), &sql.TxOptions{})
 		if err != nil {
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error creating transaction",
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error creating transaction").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
 		_, err = admin.Delete(r.Context(), tx)
 		if err != nil {
-			a.logger.WithFields(logrus.Fields{"error-type": "error deleting admin users", "admin-user-id": id}).Errorln(err)
+			a.l.Error().Str("error-type", "error deleting admin users").Str("admin-user-id", id).Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
 			return
 		}
 
 		_, err = abstract.Delete(r.Context(), tx)
 		if err != nil {
-			a.logger.WithFields(logrus.Fields{"error-type": "error deleting abstract users", "abstract-user-id": abstractId}).Errorln(err)
+			a.l.Error().Str("error-type", "error deleting abstract users").Str("abstract-user-id", abstractId).Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
 			return
 		}
 
 		txCommitErr := tx.Commit()
 		if txCommitErr != nil {
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error committing transaction",
-			}).Errorln(txCommitErr)
+			a.l.Error().Str("error-type", "error committing transaction").Err(txCommitErr).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -329,7 +292,7 @@ func (a *Application) handleAdminUserDelete() http.HandlerFunc {
 	}
 }
 
-func (a *Application) handleAdminUserUpdate() http.HandlerFunc {
+func (a *Server) handleAdminUserUpdate() http.HandlerFunc {
 	type request struct {
 		Admin bool `json:"admin" validate:"required,boolean"`
 	}
@@ -347,7 +310,7 @@ func (a *Application) handleAdminUserUpdate() http.HandlerFunc {
 		err := a.readJSON(w, r, &req)
 
 		if err != nil {
-			a.logger.Errorln(err)
+			a.l.Error().Err(err).Msg("")
 			if strings.Contains(err.Error(), "unknown field") {
 				a.writeJSON(w, http.StatusBadRequest, envelope{"error": "The request contains unknown fields"}, nil)
 				return
@@ -367,7 +330,7 @@ func (a *Application) handleAdminUserUpdate() http.HandlerFunc {
 
 		adms, err := dbmodels.AdminUsers(dbmodels.AdminUserWhere.ID.EQ(id), qm.Load(qm.Rels(dbmodels.AdminUserRels.User))).All(r.Context(), a.db)
 		if err != nil {
-			a.logger.WithFields(logrus.Fields{"error-type": "error counting admin users", "admin-user-id": id}).Errorln(err)
+			a.l.Error().Str("error-type", "error counting admin users").Str("admin-user-id", id).Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
 			return
 		}
@@ -378,10 +341,7 @@ func (a *Application) handleAdminUserUpdate() http.HandlerFunc {
 		}
 
 		if len(adms) > 1 {
-			a.logger.WithFields(logrus.Fields{
-				"error-type":    "error id collision",
-				"admin-user-id": id,
-			}).Errorln(errors.New("admin user id collision"))
+			a.l.Error().Str("error-type", "error id collision").Str("admin-user-id", id).Err(errors.New("admin user id collision")).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -391,9 +351,7 @@ func (a *Application) handleAdminUserUpdate() http.HandlerFunc {
 
 		tx, err := a.db.BeginTx(r.Context(), &sql.TxOptions{})
 		if err != nil {
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error creating transaction",
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error creating transaction").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -401,23 +359,17 @@ func (a *Application) handleAdminUserUpdate() http.HandlerFunc {
 		if err != nil {
 			txRollErr := tx.Rollback()
 			if txRollErr != nil {
-				a.logger.WithFields(logrus.Fields{
-					"error-type": "error rolling back transaction",
-				}).Errorln(txRollErr)
+				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
 				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 				return
 			}
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error updating admin user",
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error updating admin user").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
 			return
 		}
 		txCommitErr := tx.Commit()
 		if txCommitErr != nil {
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error committing transaction",
-			}).Errorln(txCommitErr)
+			a.l.Error().Str("error-type", "error committing transaction").Err(txCommitErr).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -432,7 +384,7 @@ func (a *Application) handleAdminUserUpdate() http.HandlerFunc {
 	}
 }
 
-func (a *Application) handleAdminUserUpdatePassword() http.HandlerFunc {
+func (a *Server) handleAdminUserUpdatePassword() http.HandlerFunc {
 	type request struct {
 		Password string `json:"password" validate:"required"`
 	}
@@ -443,7 +395,7 @@ func (a *Application) handleAdminUserUpdatePassword() http.HandlerFunc {
 		err := a.readJSON(w, r, &req)
 
 		if err != nil {
-			a.logger.Errorln(err)
+			a.l.Error().Err(err).Msg("")
 			if strings.Contains(err.Error(), "unknown field") {
 				a.writeJSON(w, http.StatusBadRequest, envelope{"error": "The request contains unknown fields"}, nil)
 				return
@@ -463,7 +415,7 @@ func (a *Application) handleAdminUserUpdatePassword() http.HandlerFunc {
 
 		adms, err := dbmodels.AdminUsers(dbmodels.AdminUserWhere.ID.EQ(id), qm.Load(qm.Rels(dbmodels.AdminUserRels.User))).All(r.Context(), a.db)
 		if err != nil {
-			a.logger.WithFields(logrus.Fields{"error-type": "error counting admin users", "admin-user-id": id}).Errorln(err)
+			a.l.Error().Str("error-type", "error counting admin users").Str("admin-user-id", id).Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
 			return
 		}
@@ -474,10 +426,7 @@ func (a *Application) handleAdminUserUpdatePassword() http.HandlerFunc {
 		}
 
 		if len(adms) > 1 {
-			a.logger.WithFields(logrus.Fields{
-				"error-type":    "error id collision",
-				"admin-user-id": id,
-			}).Errorln(errors.New("admin user id collision"))
+			a.l.Error().Str("error-type", "error id collision").Str("admin-user-id", id).Err(errors.New("admin user id collision")).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -487,9 +436,7 @@ func (a *Application) handleAdminUserUpdatePassword() http.HandlerFunc {
 
 		tx, err := a.db.BeginTx(r.Context(), &sql.TxOptions{})
 		if err != nil {
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error creating transaction",
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error creating transaction").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -498,15 +445,11 @@ func (a *Application) handleAdminUserUpdatePassword() http.HandlerFunc {
 		if err != nil {
 			txRollErr := tx.Rollback()
 			if txRollErr != nil {
-				a.logger.WithFields(logrus.Fields{
-					"error-type": "error rolling back transaction",
-				}).Errorln(txRollErr)
+				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
 				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 				return
 			}
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error creating hash from raw password",
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error creating hash from raw password").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -517,23 +460,17 @@ func (a *Application) handleAdminUserUpdatePassword() http.HandlerFunc {
 		if err != nil {
 			txRollErr := tx.Rollback()
 			if txRollErr != nil {
-				a.logger.WithFields(logrus.Fields{
-					"error-type": "error rolling back transaction",
-				}).Errorln(txRollErr)
+				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
 				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 				return
 			}
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error creating hash from raw password",
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error creating hash from raw password").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
 		txCommitErr := tx.Commit()
 		if txCommitErr != nil {
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error committing transaction",
-			}).Errorln(txCommitErr)
+			a.l.Error().Str("error-type", "error committing transaction").Err(txCommitErr).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}

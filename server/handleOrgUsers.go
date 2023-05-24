@@ -9,14 +9,13 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
 	dbmodels "github.com/mrityunjaygr8/clean/db/models"
-	"github.com/sirupsen/logrus"
 	"github.com/teris-io/shortid"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 	"golang.org/x/crypto/bcrypt"
 )
 
-func (a *Application) handleOrgUserCreate() http.HandlerFunc {
+func (a *Server) handleOrgUserCreate() http.HandlerFunc {
 	type request struct {
 		Password string `json:"password" validate:"required"`
 		Email    string `json:"email" validate:"required,email"`
@@ -32,7 +31,7 @@ func (a *Application) handleOrgUserCreate() http.HandlerFunc {
 		var req request
 		orgs, err := dbmodels.Orgs(dbmodels.OrgWhere.ID.EQ(orgId)).All(r.Context(), a.db)
 		if err != nil {
-			a.logger.WithFields(logrus.Fields{"error-type": "error counting orgs", "org-id": orgId}).Errorln(err)
+			a.l.Error().Str("error-type", "error counting orgs").Str("org-id", orgId).Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
 			return
 		}
@@ -43,10 +42,7 @@ func (a *Application) handleOrgUserCreate() http.HandlerFunc {
 		}
 
 		if len(orgs) > 1 {
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error id collision",
-				"org-id":     orgId,
-			}).Errorln(errors.New("org id collision"))
+			a.l.Error().Str("error-type", "error id collision").Str("org-id", orgId).Err(errors.New("org id collision")).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -55,7 +51,7 @@ func (a *Application) handleOrgUserCreate() http.HandlerFunc {
 
 		err = a.readJSON(w, r, &req)
 		if err != nil {
-			a.logger.Errorln(err)
+			a.l.Error().Err(err).Msg("")
 			if strings.Contains(err.Error(), "unknown field") {
 				a.writeJSON(w, http.StatusBadRequest, envelope{"error": "The request contains unknown fields"}, nil)
 				return
@@ -75,9 +71,7 @@ func (a *Application) handleOrgUserCreate() http.HandlerFunc {
 
 		tx, err := a.db.BeginTx(r.Context(), &sql.TxOptions{})
 		if err != nil {
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error creating transaction",
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error creating transaction").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -86,24 +80,18 @@ func (a *Application) handleOrgUserCreate() http.HandlerFunc {
 		if err != nil {
 			txRollErr := tx.Rollback()
 			if txRollErr != nil {
-				a.logger.WithFields(logrus.Fields{
-					"error-type": "error rolling back transaction",
-				}).Errorln(txRollErr)
+				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
 				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 				return
 			}
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error checking if abstract user exists",
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error checking if abstract user exists").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
 		if exists {
 			txRollErr := tx.Rollback()
 			if txRollErr != nil {
-				a.logger.WithFields(logrus.Fields{
-					"error-type": "error rolling back transaction",
-				}).Errorln(txRollErr)
+				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
 				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 				return
 			}
@@ -117,15 +105,11 @@ func (a *Application) handleOrgUserCreate() http.HandlerFunc {
 		if err != nil {
 			txRollErr := tx.Rollback()
 			if txRollErr != nil {
-				a.logger.WithFields(logrus.Fields{
-					"error-type": "error rolling back transaction",
-				}).Errorln(txRollErr)
+				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
 				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 				return
 			}
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error creating abstract id",
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error creating abstract id").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -135,15 +119,11 @@ func (a *Application) handleOrgUserCreate() http.HandlerFunc {
 		if err != nil {
 			txRollErr := tx.Rollback()
 			if txRollErr != nil {
-				a.logger.WithFields(logrus.Fields{
-					"error-type": "error rolling back transaction",
-				}).Errorln(txRollErr)
+				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
 				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 				return
 			}
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error creating hash from raw password",
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error creating hash from raw password").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -154,15 +134,11 @@ func (a *Application) handleOrgUserCreate() http.HandlerFunc {
 		if err != nil {
 			txRollErr := tx.Rollback()
 			if txRollErr != nil {
-				a.logger.WithFields(logrus.Fields{
-					"error-type": "error rolling back transaction",
-				}).Errorln(txRollErr)
+				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
 				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 				return
 			}
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error inserting abstract user",
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error inserting abstract user").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -174,15 +150,11 @@ func (a *Application) handleOrgUserCreate() http.HandlerFunc {
 		if err != nil {
 			txRollErr := tx.Rollback()
 			if txRollErr != nil {
-				a.logger.WithFields(logrus.Fields{
-					"error-type": "error rolling back transaction",
-				}).Errorln(txRollErr)
+				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
 				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 				return
 			}
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error creating org id",
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error creating org id").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -195,23 +167,17 @@ func (a *Application) handleOrgUserCreate() http.HandlerFunc {
 		if err != nil {
 			txRollErr := tx.Rollback()
 			if txRollErr != nil {
-				a.logger.WithFields(logrus.Fields{
-					"error-type": "error rolling back transaction",
-				}).Errorln(txRollErr)
+				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
 				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 				return
 			}
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error inserting org user",
-			}).Errorln(err)
+			a.l.Error().Str("error-type", "error inserting org user").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
 		txCommitErr := tx.Commit()
 		if txCommitErr != nil {
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error committing transaction",
-			}).Errorln(txCommitErr)
+			a.l.Error().Str("error-type", "error committing transaction").Err(txCommitErr).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -226,7 +192,7 @@ func (a *Application) handleOrgUserCreate() http.HandlerFunc {
 	}
 }
 
-func (a *Application) handleOrgUserList() http.HandlerFunc {
+func (a *Server) handleOrgUserList() http.HandlerFunc {
 	type orgUser struct {
 		Email string `json:"email"`
 		Id    string `json:"id"`
@@ -239,7 +205,7 @@ func (a *Application) handleOrgUserList() http.HandlerFunc {
 		orgId := chi.URLParam(r, "orgId")
 		orgs, err := dbmodels.Orgs(dbmodels.OrgWhere.ID.EQ(orgId)).All(r.Context(), a.db)
 		if err != nil {
-			a.logger.WithFields(logrus.Fields{"error-type": "error counting orgs", "org-id": orgId}).Errorln(err)
+			a.l.Error().Str("error-type", "error counting orgs").Str("org-id", orgId).Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
 			return
 		}
@@ -250,10 +216,7 @@ func (a *Application) handleOrgUserList() http.HandlerFunc {
 		}
 
 		if len(orgs) > 1 {
-			a.logger.WithFields(logrus.Fields{
-				"error-type": "error id collision",
-				"org-id":     orgId,
-			}).Errorln(errors.New("org id collision"))
+			a.l.Error().Str("error-type", "error id collision").Str("org-id", orgId).Err(errors.New("org id collision")).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
@@ -263,7 +226,7 @@ func (a *Application) handleOrgUserList() http.HandlerFunc {
 
 		orgUsersDB, err := dbmodels.OrgUsers(qm.Load(qm.Rels(dbmodels.OrgUserRels.User)), dbmodels.OrgUserWhere.OrgID.EQ(org.InternalID)).All(r.Context(), a.db)
 		if err != nil {
-			a.logger.WithFields(logrus.Fields{"error-type": "error listing org users"}).Errorln(err)
+			a.l.Error().Str("error-type", "error listing org users").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
 			return
 		}
