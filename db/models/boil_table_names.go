@@ -6,9 +6,13 @@ package dbmodels
 var TableNames = struct {
 	AbstractUsers    string
 	AdminUsers       string
+	OrgUsers         string
+	Orgs             string
 	SchemaMigrations string
 }{
 	AbstractUsers:    "abstract_users",
 	AdminUsers:       "admin_users",
+	OrgUsers:         "org_users",
+	Orgs:             "orgs",
 	SchemaMigrations: "schema_migrations",
 }

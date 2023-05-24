@@ -10,5 +10,9 @@ func TestUpsert(t *testing.T) {
 
 	t.Run("AdminUsers", testAdminUsersUpsert)
 
+	t.Run("OrgUsers", testOrgUsersUpsert)
+
+	t.Run("Orgs", testOrgsUpsert)
+
 	t.Run("SchemaMigrations", testSchemaMigrationsUpsert)
 }

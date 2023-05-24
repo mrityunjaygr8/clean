@@ -119,13 +119,16 @@ var AbstractUserWhere = struct {
 // AbstractUserRels is where relationship names are stored.
 var AbstractUserRels = struct {
 	UserAdminUsers string
+	UserOrgUsers   string
 }{
 	UserAdminUsers: "UserAdminUsers",
+	UserOrgUsers:   "UserOrgUsers",
 }
 
 // abstractUserR is where relationships are stored.
 type abstractUserR struct {
 	UserAdminUsers AdminUserSlice `boil:"UserAdminUsers" json:"UserAdminUsers" toml:"UserAdminUsers" yaml:"UserAdminUsers"`
+	UserOrgUsers   OrgUserSlice   `boil:"UserOrgUsers" json:"UserOrgUsers" toml:"UserOrgUsers" yaml:"UserOrgUsers"`
 }
 
 // NewStruct creates a new relationship struct
@@ -138,6 +141,13 @@ func (r *abstractUserR) GetUserAdminUsers() AdminUserSlice {
 		return nil
 	}
 	return r.UserAdminUsers
+}
+
+func (r *abstractUserR) GetUserOrgUsers() OrgUserSlice {
+	if r == nil {
+		return nil
+	}
+	return r.UserOrgUsers
 }
 
 // abstractUserL is where Load methods for each relationship are stored.
@@ -443,6 +453,20 @@ func (o *AbstractUser) UserAdminUsers(mods ...qm.QueryMod) adminUserQuery {
 	return AdminUsers(queryMods...)
 }
 
+// UserOrgUsers retrieves all the org_user's OrgUsers with an executor via user_id column.
+func (o *AbstractUser) UserOrgUsers(mods ...qm.QueryMod) orgUserQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"org_users\".\"user_id\"=?", o.InternalID),
+	)
+
+	return OrgUsers(queryMods...)
+}
+
 // LoadUserAdminUsers allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for a 1-M or N-M relationship.
 func (abstractUserL) LoadUserAdminUsers(ctx context.Context, e boil.ContextExecutor, singular bool, maybeAbstractUser interface{}, mods queries.Applicator) error {
@@ -557,6 +581,120 @@ func (abstractUserL) LoadUserAdminUsers(ctx context.Context, e boil.ContextExecu
 	return nil
 }
 
+// LoadUserOrgUsers allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (abstractUserL) LoadUserOrgUsers(ctx context.Context, e boil.ContextExecutor, singular bool, maybeAbstractUser interface{}, mods queries.Applicator) error {
+	var slice []*AbstractUser
+	var object *AbstractUser
+
+	if singular {
+		var ok bool
+		object, ok = maybeAbstractUser.(*AbstractUser)
+		if !ok {
+			object = new(AbstractUser)
+			ok = queries.SetFromEmbeddedStruct(&object, &maybeAbstractUser)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeAbstractUser))
+			}
+		}
+	} else {
+		s, ok := maybeAbstractUser.(*[]*AbstractUser)
+		if ok {
+			slice = *s
+		} else {
+			ok = queries.SetFromEmbeddedStruct(&slice, maybeAbstractUser)
+			if !ok {
+				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeAbstractUser))
+			}
+		}
+	}
+
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &abstractUserR{}
+		}
+		args = append(args, object.InternalID)
+	} else {
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &abstractUserR{}
+			}
+
+			for _, a := range args {
+				if a == obj.InternalID {
+					continue Outer
+				}
+			}
+
+			args = append(args, obj.InternalID)
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	query := NewQuery(
+		qm.From(`org_users`),
+		qm.WhereIn(`org_users.user_id in ?`, args...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load org_users")
+	}
+
+	var resultSlice []*OrgUser
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice org_users")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on org_users")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for org_users")
+	}
+
+	if len(orgUserAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+	if singular {
+		object.R.UserOrgUsers = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &orgUserR{}
+			}
+			foreign.R.User = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.InternalID == foreign.UserID {
+				local.R.UserOrgUsers = append(local.R.UserOrgUsers, foreign)
+				if foreign.R == nil {
+					foreign.R = &orgUserR{}
+				}
+				foreign.R.User = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 // AddUserAdminUsers adds the given related objects to the existing relationships
 // of the abstract_user, optionally inserting them as new records.
 // Appends related to o.R.UserAdminUsers.
@@ -601,6 +739,59 @@ func (o *AbstractUser) AddUserAdminUsers(ctx context.Context, exec boil.ContextE
 	for _, rel := range related {
 		if rel.R == nil {
 			rel.R = &adminUserR{
+				User: o,
+			}
+		} else {
+			rel.R.User = o
+		}
+	}
+	return nil
+}
+
+// AddUserOrgUsers adds the given related objects to the existing relationships
+// of the abstract_user, optionally inserting them as new records.
+// Appends related to o.R.UserOrgUsers.
+// Sets related.R.User appropriately.
+func (o *AbstractUser) AddUserOrgUsers(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*OrgUser) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.UserID = o.InternalID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"org_users\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"user_id"}),
+				strmangle.WhereClause("\"", "\"", 2, orgUserPrimaryKeyColumns),
+			)
+			values := []interface{}{o.InternalID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.UserID = o.InternalID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &abstractUserR{
+			UserOrgUsers: related,
+		}
+	} else {
+		o.R.UserOrgUsers = append(o.R.UserOrgUsers, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &orgUserR{
 				User: o,
 			}
 		} else {

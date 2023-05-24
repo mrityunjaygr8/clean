@@ -14,66 +14,88 @@ import "testing"
 func TestParent(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsers)
 	t.Run("AdminUsers", testAdminUsers)
+	t.Run("OrgUsers", testOrgUsers)
+	t.Run("Orgs", testOrgs)
 	t.Run("SchemaMigrations", testSchemaMigrations)
 }
 
 func TestDelete(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersDelete)
 	t.Run("AdminUsers", testAdminUsersDelete)
+	t.Run("OrgUsers", testOrgUsersDelete)
+	t.Run("Orgs", testOrgsDelete)
 	t.Run("SchemaMigrations", testSchemaMigrationsDelete)
 }
 
 func TestQueryDeleteAll(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersQueryDeleteAll)
 	t.Run("AdminUsers", testAdminUsersQueryDeleteAll)
+	t.Run("OrgUsers", testOrgUsersQueryDeleteAll)
+	t.Run("Orgs", testOrgsQueryDeleteAll)
 	t.Run("SchemaMigrations", testSchemaMigrationsQueryDeleteAll)
 }
 
 func TestSliceDeleteAll(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersSliceDeleteAll)
 	t.Run("AdminUsers", testAdminUsersSliceDeleteAll)
+	t.Run("OrgUsers", testOrgUsersSliceDeleteAll)
+	t.Run("Orgs", testOrgsSliceDeleteAll)
 	t.Run("SchemaMigrations", testSchemaMigrationsSliceDeleteAll)
 }
 
 func TestExists(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersExists)
 	t.Run("AdminUsers", testAdminUsersExists)
+	t.Run("OrgUsers", testOrgUsersExists)
+	t.Run("Orgs", testOrgsExists)
 	t.Run("SchemaMigrations", testSchemaMigrationsExists)
 }
 
 func TestFind(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersFind)
 	t.Run("AdminUsers", testAdminUsersFind)
+	t.Run("OrgUsers", testOrgUsersFind)
+	t.Run("Orgs", testOrgsFind)
 	t.Run("SchemaMigrations", testSchemaMigrationsFind)
 }
 
 func TestBind(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersBind)
 	t.Run("AdminUsers", testAdminUsersBind)
+	t.Run("OrgUsers", testOrgUsersBind)
+	t.Run("Orgs", testOrgsBind)
 	t.Run("SchemaMigrations", testSchemaMigrationsBind)
 }
 
 func TestOne(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersOne)
 	t.Run("AdminUsers", testAdminUsersOne)
+	t.Run("OrgUsers", testOrgUsersOne)
+	t.Run("Orgs", testOrgsOne)
 	t.Run("SchemaMigrations", testSchemaMigrationsOne)
 }
 
 func TestAll(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersAll)
 	t.Run("AdminUsers", testAdminUsersAll)
+	t.Run("OrgUsers", testOrgUsersAll)
+	t.Run("Orgs", testOrgsAll)
 	t.Run("SchemaMigrations", testSchemaMigrationsAll)
 }
 
 func TestCount(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersCount)
 	t.Run("AdminUsers", testAdminUsersCount)
+	t.Run("OrgUsers", testOrgUsersCount)
+	t.Run("Orgs", testOrgsCount)
 	t.Run("SchemaMigrations", testSchemaMigrationsCount)
 }
 
 func TestHooks(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersHooks)
 	t.Run("AdminUsers", testAdminUsersHooks)
+	t.Run("OrgUsers", testOrgUsersHooks)
+	t.Run("Orgs", testOrgsHooks)
 	t.Run("SchemaMigrations", testSchemaMigrationsHooks)
 }
 
@@ -82,6 +104,10 @@ func TestInsert(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersInsertWhitelist)
 	t.Run("AdminUsers", testAdminUsersInsert)
 	t.Run("AdminUsers", testAdminUsersInsertWhitelist)
+	t.Run("OrgUsers", testOrgUsersInsert)
+	t.Run("OrgUsers", testOrgUsersInsertWhitelist)
+	t.Run("Orgs", testOrgsInsert)
+	t.Run("Orgs", testOrgsInsertWhitelist)
 	t.Run("SchemaMigrations", testSchemaMigrationsInsert)
 	t.Run("SchemaMigrations", testSchemaMigrationsInsertWhitelist)
 }
@@ -90,6 +116,8 @@ func TestInsert(t *testing.T) {
 // or deadlocks can occur.
 func TestToOne(t *testing.T) {
 	t.Run("AdminUserToAbstractUserUsingUser", testAdminUserToOneAbstractUserUsingUser)
+	t.Run("OrgUserToAbstractUserUsingUser", testOrgUserToOneAbstractUserUsingUser)
+	t.Run("OrgUserToOrgUsingOrg", testOrgUserToOneOrgUsingOrg)
 }
 
 // TestOneToOne tests cannot be run in parallel
@@ -100,12 +128,16 @@ func TestOneToOne(t *testing.T) {}
 // or deadlocks can occur.
 func TestToMany(t *testing.T) {
 	t.Run("AbstractUserToUserAdminUsers", testAbstractUserToManyUserAdminUsers)
+	t.Run("AbstractUserToUserOrgUsers", testAbstractUserToManyUserOrgUsers)
+	t.Run("OrgToOrgUsers", testOrgToManyOrgUsers)
 }
 
 // TestToOneSet tests cannot be run in parallel
 // or deadlocks can occur.
 func TestToOneSet(t *testing.T) {
 	t.Run("AdminUserToAbstractUserUsingUserAdminUsers", testAdminUserToOneSetOpAbstractUserUsingUser)
+	t.Run("OrgUserToAbstractUserUsingUserOrgUsers", testOrgUserToOneSetOpAbstractUserUsingUser)
+	t.Run("OrgUserToOrgUsingOrgUsers", testOrgUserToOneSetOpOrgUsingOrg)
 }
 
 // TestToOneRemove tests cannot be run in parallel
@@ -124,6 +156,8 @@ func TestOneToOneRemove(t *testing.T) {}
 // or deadlocks can occur.
 func TestToManyAdd(t *testing.T) {
 	t.Run("AbstractUserToUserAdminUsers", testAbstractUserToManyAddOpUserAdminUsers)
+	t.Run("AbstractUserToUserOrgUsers", testAbstractUserToManyAddOpUserOrgUsers)
+	t.Run("OrgToOrgUsers", testOrgToManyAddOpOrgUsers)
 }
 
 // TestToManySet tests cannot be run in parallel
@@ -137,29 +171,39 @@ func TestToManyRemove(t *testing.T) {}
 func TestReload(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersReload)
 	t.Run("AdminUsers", testAdminUsersReload)
+	t.Run("OrgUsers", testOrgUsersReload)
+	t.Run("Orgs", testOrgsReload)
 	t.Run("SchemaMigrations", testSchemaMigrationsReload)
 }
 
 func TestReloadAll(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersReloadAll)
 	t.Run("AdminUsers", testAdminUsersReloadAll)
+	t.Run("OrgUsers", testOrgUsersReloadAll)
+	t.Run("Orgs", testOrgsReloadAll)
 	t.Run("SchemaMigrations", testSchemaMigrationsReloadAll)
 }
 
 func TestSelect(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersSelect)
 	t.Run("AdminUsers", testAdminUsersSelect)
+	t.Run("OrgUsers", testOrgUsersSelect)
+	t.Run("Orgs", testOrgsSelect)
 	t.Run("SchemaMigrations", testSchemaMigrationsSelect)
 }
 
 func TestUpdate(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersUpdate)
 	t.Run("AdminUsers", testAdminUsersUpdate)
+	t.Run("OrgUsers", testOrgUsersUpdate)
+	t.Run("Orgs", testOrgsUpdate)
 	t.Run("SchemaMigrations", testSchemaMigrationsUpdate)
 }
 
 func TestSliceUpdateAll(t *testing.T) {
 	t.Run("AbstractUsers", testAbstractUsersSliceUpdateAll)
 	t.Run("AdminUsers", testAdminUsersSliceUpdateAll)
+	t.Run("OrgUsers", testOrgUsersSliceUpdateAll)
+	t.Run("Orgs", testOrgsSliceUpdateAll)
 	t.Run("SchemaMigrations", testSchemaMigrationsSliceUpdateAll)
 }
