@@ -3,11 +3,10 @@ package server
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-playground/validator/v10"
 	dbmodels "github.com/mrityunjaygr8/clean/db/models"
 	"github.com/teris-io/shortid"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -50,38 +49,22 @@ func (a *Server) handleOrgUserCreate() http.HandlerFunc {
 		org := orgs[0]
 
 		err = a.readJSON(w, r, &req)
-		if err != nil {
-			a.l.Error().Err(err).Msg("")
-			if strings.Contains(err.Error(), "unknown field") {
-				a.writeJSON(w, http.StatusBadRequest, envelope{"error": "The request contains unknown fields"}, nil)
-				return
-			}
+		if a.checkExtraFieldsError(w, err) {
+			return
 		}
 		err = a.validator.Struct(req)
-		if err != nil {
-			errResp := make(map[string]interface{})
-			for _, e := range err.(validator.ValidationErrors) {
-				errResp[e.Field()] = e.Translate(a.trans)
-			}
-
-			a.writeJSON(w, http.StatusBadRequest, envelope{"errors": errResp}, nil)
-
+		if a.checkValidationErrors(w, err) {
 			return
 		}
 
 		tx, err := a.db.BeginTx(r.Context(), &sql.TxOptions{})
-		if err != nil {
-			a.l.Error().Str("error-type", "error creating transaction").Err(err).Msg("")
-			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+		if a.checkTransactionBeginError(w, err) {
 			return
 		}
 
 		exists, err := dbmodels.AbstractUsers(dbmodels.AbstractUserWhere.Email.EQ(req.Email)).Exists(r.Context(), tx)
 		if err != nil {
-			txRollErr := tx.Rollback()
-			if txRollErr != nil {
-				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
-				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+			if a.transactionRollback(w, tx) {
 				return
 			}
 			a.l.Error().Str("error-type", "error checking if abstract user exists").Err(err).Msg("")
@@ -89,10 +72,7 @@ func (a *Server) handleOrgUserCreate() http.HandlerFunc {
 			return
 		}
 		if exists {
-			txRollErr := tx.Rollback()
-			if txRollErr != nil {
-				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
-				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+			if a.transactionRollback(w, tx) {
 				return
 			}
 			a.writeJSON(w, http.StatusBadRequest, envelope{"error": "User with email already exists"}, nil)
@@ -103,10 +83,7 @@ func (a *Server) handleOrgUserCreate() http.HandlerFunc {
 
 		tmpId, err := shortid.Generate()
 		if err != nil {
-			txRollErr := tx.Rollback()
-			if txRollErr != nil {
-				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
-				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+			if a.transactionRollback(w, tx) {
 				return
 			}
 			a.l.Error().Str("error-type", "error creating abstract id").Err(err).Msg("")
@@ -117,10 +94,7 @@ func (a *Server) handleOrgUserCreate() http.HandlerFunc {
 
 		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
 		if err != nil {
-			txRollErr := tx.Rollback()
-			if txRollErr != nil {
-				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
-				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+			if a.transactionRollback(w, tx) {
 				return
 			}
 			a.l.Error().Str("error-type", "error creating hash from raw password").Err(err).Msg("")
@@ -132,10 +106,7 @@ func (a *Server) handleOrgUserCreate() http.HandlerFunc {
 
 		err = abstractUser.Insert(r.Context(), tx, boil.Infer())
 		if err != nil {
-			txRollErr := tx.Rollback()
-			if txRollErr != nil {
-				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
-				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+			if a.transactionRollback(w, tx) {
 				return
 			}
 			a.l.Error().Str("error-type", "error inserting abstract user").Err(err).Msg("")
@@ -148,10 +119,7 @@ func (a *Server) handleOrgUserCreate() http.HandlerFunc {
 
 		tmpId, err = shortid.Generate()
 		if err != nil {
-			txRollErr := tx.Rollback()
-			if txRollErr != nil {
-				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
-				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+			if a.transactionRollback(w, tx) {
 				return
 			}
 			a.l.Error().Str("error-type", "error creating org id").Err(err).Msg("")
@@ -165,20 +133,14 @@ func (a *Server) handleOrgUserCreate() http.HandlerFunc {
 
 		err = orgUser.Insert(r.Context(), tx, boil.Infer())
 		if err != nil {
-			txRollErr := tx.Rollback()
-			if txRollErr != nil {
-				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
-				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+			if a.transactionRollback(w, tx) {
 				return
 			}
 			a.l.Error().Str("error-type", "error inserting org user").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
-		txCommitErr := tx.Commit()
-		if txCommitErr != nil {
-			a.l.Error().Str("error-type", "error committing transaction").Err(txCommitErr).Msg("")
-			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+		if ok := a.transactionCommit(w, tx); ok {
 			return
 		}
 
@@ -244,310 +206,231 @@ func (a *Server) handleOrgUserList() http.HandlerFunc {
 	}
 }
 
-//
-// func (a *Application) handleAdminUserRetrieve() http.HandlerFunc {
-// 	type response struct {
-// 		Email string `json:"email"`
-// 		Id    string `json:"id"`
-// 		Admin bool   `json:"admin"`
-// 	}
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		id := chi.URLParam(r, "adminUserId")
-// 		adm, err := dbmodels.AdminUsers(dbmodels.AdminUserWhere.ID.EQ(id), qm.Load(qm.Rels(dbmodels.AdminUserRels.User))).One(r.Context(), a.db)
-// 		if err != nil {
-// 			if errors.Is(err, sql.ErrNoRows) {
-// 				a.writeJSON(w, http.StatusNotFound, envelope{}, nil)
-// 				return
-//
-// 			}
-// 			a.logger.WithFields(logrus.Fields{"error-type": "error retrieving admin users", "admin-user-id": id}).Errorln(err)
-// 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
-// 			return
-// 		}
-//
-// 		resp := response{
-// 			Email: adm.R.User.Email,
-// 			Id:    adm.ID,
-// 			Admin: adm.Admin,
-// 		}
-//
-// 		a.writeJSON(w, http.StatusOK, envelope{"admin-user": resp}, nil)
-// 	}
-// }
-//
-// func (a *Application) handleAdminUserDelete() http.HandlerFunc {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		id := chi.URLParam(r, "adminUserId")
-//
-// 		adms, err := dbmodels.AdminUsers(dbmodels.AdminUserWhere.ID.EQ(id), qm.Load(qm.Rels(dbmodels.AdminUserRels.User))).All(r.Context(), a.db)
-// 		if err != nil {
-// 			a.logger.WithFields(logrus.Fields{"error-type": "error counting admin users", "admin-user-id": id}).Errorln(err)
-// 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
-// 			return
-// 		}
-//
-// 		if len(adms) == 0 {
-// 			a.writeJSON(w, http.StatusNotFound, envelope{}, nil)
-// 			return
-// 		}
-//
-// 		if len(adms) > 1 {
-// 			a.logger.WithFields(logrus.Fields{
-// 				"error-type":    "error id collision",
-// 				"admin-user-id": id,
-// 			}).Errorln(errors.New("admin user id collision"))
-// 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
-// 			return
-// 		}
-//
-// 		admin := adms[0]
-// 		abstract := admin.R.GetUser()
-// 		abstractId := admin.R.User.ID
-//
-// 		tx, err := a.db.BeginTx(r.Context(), &sql.TxOptions{})
-// 		if err != nil {
-// 			a.logger.WithFields(logrus.Fields{
-// 				"error-type": "error creating transaction",
-// 			}).Errorln(err)
-// 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
-// 			return
-// 		}
-// 		_, err = admin.Delete(r.Context(), tx)
-// 		if err != nil {
-// 			a.logger.WithFields(logrus.Fields{"error-type": "error deleting admin users", "admin-user-id": id}).Errorln(err)
-// 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
-// 			return
-// 		}
-//
-// 		_, err = abstract.Delete(r.Context(), tx)
-// 		if err != nil {
-// 			a.logger.WithFields(logrus.Fields{"error-type": "error deleting abstract users", "abstract-user-id": abstractId}).Errorln(err)
-// 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
-// 			return
-// 		}
-//
-// 		txCommitErr := tx.Commit()
-// 		if txCommitErr != nil {
-// 			a.logger.WithFields(logrus.Fields{
-// 				"error-type": "error committing transaction",
-// 			}).Errorln(txCommitErr)
-// 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
-// 			return
-// 		}
-//
-// 		a.writeJSON(w, http.StatusNoContent, envelope{}, nil)
-// 	}
-// }
-//
-// func (a *Application) handleAdminUserUpdate() http.HandlerFunc {
-// 	type request struct {
-// 		Admin bool `json:"admin" validate:"required,boolean"`
-// 	}
-//
-// 	type response struct {
-// 		Email string `json:"email"`
-// 		Id    string `json:"id"`
-// 		Admin bool   `json:"admin"`
-// 	}
-//
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		id := chi.URLParam(r, "adminUserId")
-//
-// 		var req request
-// 		err := a.readJSON(w, r, &req)
-//
-// 		if err != nil {
-// 			a.logger.Errorln(err)
-// 			if strings.Contains(err.Error(), "unknown field") {
-// 				a.writeJSON(w, http.StatusBadRequest, envelope{"error": "The request contains unknown fields"}, nil)
-// 				return
-// 			}
-// 		}
-// 		err = a.validator.Struct(req)
-// 		if err != nil {
-// 			errResp := make(map[string]interface{})
-// 			for _, e := range err.(validator.ValidationErrors) {
-// 				errResp[e.Field()] = e.Translate(a.trans)
-// 			}
-//
-// 			a.writeJSON(w, http.StatusBadRequest, envelope{"errors": errResp}, nil)
-//
-// 			return
-// 		}
-//
-// 		adms, err := dbmodels.AdminUsers(dbmodels.AdminUserWhere.ID.EQ(id), qm.Load(qm.Rels(dbmodels.AdminUserRels.User))).All(r.Context(), a.db)
-// 		if err != nil {
-// 			a.logger.WithFields(logrus.Fields{"error-type": "error counting admin users", "admin-user-id": id}).Errorln(err)
-// 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
-// 			return
-// 		}
-//
-// 		if len(adms) == 0 {
-// 			a.writeJSON(w, http.StatusNotFound, envelope{}, nil)
-// 			return
-// 		}
-//
-// 		if len(adms) > 1 {
-// 			a.logger.WithFields(logrus.Fields{
-// 				"error-type":    "error id collision",
-// 				"admin-user-id": id,
-// 			}).Errorln(errors.New("admin user id collision"))
-// 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
-// 			return
-// 		}
-//
-// 		admin := adms[0]
-// 		admin.Admin = req.Admin
-//
-// 		tx, err := a.db.BeginTx(r.Context(), &sql.TxOptions{})
-// 		if err != nil {
-// 			a.logger.WithFields(logrus.Fields{
-// 				"error-type": "error creating transaction",
-// 			}).Errorln(err)
-// 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
-// 			return
-// 		}
-// 		_, err = admin.Update(r.Context(), tx, boil.Infer())
-// 		if err != nil {
-// 			txRollErr := tx.Rollback()
-// 			if txRollErr != nil {
-// 				a.logger.WithFields(logrus.Fields{
-// 					"error-type": "error rolling back transaction",
-// 				}).Errorln(txRollErr)
-// 				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
-// 				return
-// 			}
-// 			a.logger.WithFields(logrus.Fields{
-// 				"error-type": "error updating admin user",
-// 			}).Errorln(err)
-// 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
-// 			return
-// 		}
-// 		txCommitErr := tx.Commit()
-// 		if txCommitErr != nil {
-// 			a.logger.WithFields(logrus.Fields{
-// 				"error-type": "error committing transaction",
-// 			}).Errorln(txCommitErr)
-// 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
-// 			return
-// 		}
-//
-// 		resp := response{
-// 			Email: admin.R.User.Email,
-// 			Id:    admin.ID,
-// 			Admin: admin.Admin,
-// 		}
-//
-// 		a.writeJSON(w, http.StatusOK, envelope{"admin-user": resp}, nil)
-// 	}
-// }
-//
-// func (a *Application) handleAdminUserUpdatePassword() http.HandlerFunc {
-// 	type request struct {
-// 		Password string `json:"password" validate:"required"`
-// 	}
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		id := chi.URLParam(r, "adminUserId")
-//
-// 		var req request
-// 		err := a.readJSON(w, r, &req)
-//
-// 		if err != nil {
-// 			a.logger.Errorln(err)
-// 			if strings.Contains(err.Error(), "unknown field") {
-// 				a.writeJSON(w, http.StatusBadRequest, envelope{"error": "The request contains unknown fields"}, nil)
-// 				return
-// 			}
-// 		}
-// 		err = a.validator.Struct(req)
-// 		if err != nil {
-// 			errResp := make(map[string]interface{})
-// 			for _, e := range err.(validator.ValidationErrors) {
-// 				errResp[e.Field()] = e.Translate(a.trans)
-// 			}
-//
-// 			a.writeJSON(w, http.StatusBadRequest, envelope{"errors": errResp}, nil)
-//
-// 			return
-// 		}
-//
-// 		adms, err := dbmodels.AdminUsers(dbmodels.AdminUserWhere.ID.EQ(id), qm.Load(qm.Rels(dbmodels.AdminUserRels.User))).All(r.Context(), a.db)
-// 		if err != nil {
-// 			a.logger.WithFields(logrus.Fields{"error-type": "error counting admin users", "admin-user-id": id}).Errorln(err)
-// 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
-// 			return
-// 		}
-//
-// 		if len(adms) == 0 {
-// 			a.writeJSON(w, http.StatusNotFound, envelope{}, nil)
-// 			return
-// 		}
-//
-// 		if len(adms) > 1 {
-// 			a.logger.WithFields(logrus.Fields{
-// 				"error-type":    "error id collision",
-// 				"admin-user-id": id,
-// 			}).Errorln(errors.New("admin user id collision"))
-// 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
-// 			return
-// 		}
-//
-// 		admin := adms[0]
-// 		abstract := admin.R.GetUser()
-//
-// 		tx, err := a.db.BeginTx(r.Context(), &sql.TxOptions{})
-// 		if err != nil {
-// 			a.logger.WithFields(logrus.Fields{
-// 				"error-type": "error creating transaction",
-// 			}).Errorln(err)
-// 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
-// 			return
-// 		}
-//
-// 		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
-// 		if err != nil {
-// 			txRollErr := tx.Rollback()
-// 			if txRollErr != nil {
-// 				a.logger.WithFields(logrus.Fields{
-// 					"error-type": "error rolling back transaction",
-// 				}).Errorln(txRollErr)
-// 				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
-// 				return
-// 			}
-// 			a.logger.WithFields(logrus.Fields{
-// 				"error-type": "error creating hash from raw password",
-// 			}).Errorln(err)
-// 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
-// 			return
-// 		}
-//
-// 		abstract.Password = string(hash)
-// 		_, err = abstract.Update(r.Context(), tx, boil.Infer())
-//
-// 		if err != nil {
-// 			txRollErr := tx.Rollback()
-// 			if txRollErr != nil {
-// 				a.logger.WithFields(logrus.Fields{
-// 					"error-type": "error rolling back transaction",
-// 				}).Errorln(txRollErr)
-// 				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
-// 				return
-// 			}
-// 			a.logger.WithFields(logrus.Fields{
-// 				"error-type": "error creating hash from raw password",
-// 			}).Errorln(err)
-// 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
-// 			return
-// 		}
-// 		txCommitErr := tx.Commit()
-// 		if txCommitErr != nil {
-// 			a.logger.WithFields(logrus.Fields{
-// 				"error-type": "error committing transaction",
-// 			}).Errorln(txCommitErr)
-// 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
-// 			return
-// 		}
-//
-// 		a.writeJSON(w, http.StatusOK, envelope{"status": fmt.Sprintf("Password for %s updated successfully", admin.R.User.Email)}, nil)
-// 	}
-// }
+func (s *Server) handleOrgUserRetrieve() http.HandlerFunc {
+	type response struct {
+		Email string `json:"email"`
+		Id    string `json:"id"`
+		Admin bool   `json:"admin"`
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "adminUserId")
+		adm, err := dbmodels.AdminUsers(dbmodels.AdminUserWhere.ID.EQ(id), qm.Load(qm.Rels(dbmodels.AdminUserRels.User))).One(r.Context(), s.db)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				s.writeJSON(w, http.StatusNotFound, envelope{}, nil)
+				return
+
+			}
+			s.l.Error().Str("error-type", "error retrieving admin users").Str("admin-user-id", id).Err(err).Msg("")
+			s.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
+			return
+		}
+
+		resp := response{
+			Email: adm.R.User.Email,
+			Id:    adm.ID,
+			Admin: adm.Admin,
+		}
+
+		s.writeJSON(w, http.StatusOK, envelope{"admin-user": resp}, nil)
+	}
+}
+
+func (s *Server) handleOrgUserDelete() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "adminUserId")
+
+		adms, err := dbmodels.AdminUsers(dbmodels.AdminUserWhere.ID.EQ(id), qm.Load(qm.Rels(dbmodels.AdminUserRels.User))).All(r.Context(), s.db)
+		if err != nil {
+			s.l.Error().Str("error-type", "error counting admin users").Str("admin-user-id", id).Err(err).Msg("")
+			s.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
+			return
+		}
+
+		if len(adms) == 0 {
+			s.writeJSON(w, http.StatusNotFound, envelope{}, nil)
+			return
+		}
+
+		if len(adms) > 1 {
+			s.l.Error().Str("error-type", "error id collision").Str(
+				"admin-user-id", id).Err(errors.New("admin user id collision")).Msg("")
+			s.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+			return
+		}
+
+		admin := adms[0]
+		abstract := admin.R.GetUser()
+		abstractId := admin.R.User.ID
+
+		tx, err := s.db.BeginTx(r.Context(), &sql.TxOptions{})
+		if s.checkTransactionBeginError(w, err) {
+			return
+		}
+		_, err = admin.Delete(r.Context(), tx)
+		if err != nil {
+			s.l.Error().Str("error-type", "error deleting admin users").Str("admin-user-id", id).Err(err).Msg("")
+			s.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
+			return
+		}
+
+		_, err = abstract.Delete(r.Context(), tx)
+		if err != nil {
+			s.l.Error().Str("error-type", "error deleting abstract users").Str("abstract-user-id", abstractId).Err(err).Msg("")
+			s.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
+			return
+		}
+
+		if ok := s.transactionCommit(w, tx); ok {
+			return
+		}
+
+		s.writeJSON(w, http.StatusNoContent, envelope{}, nil)
+	}
+}
+
+func (a *Server) handleOrgUserUpdate() http.HandlerFunc {
+	type request struct {
+		Admin bool `json:"admin" validate:"required,boolean"`
+	}
+
+	type response struct {
+		Email string `json:"email"`
+		Id    string `json:"id"`
+		Admin bool   `json:"admin"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "adminUserId")
+
+		var req request
+		err := a.readJSON(w, r, &req)
+
+		if a.checkExtraFieldsError(w, err) {
+			return
+		}
+		err = a.validator.Struct(req)
+		if a.checkValidationErrors(w, err) {
+			return
+		}
+
+		adms, err := dbmodels.AdminUsers(dbmodels.AdminUserWhere.ID.EQ(id), qm.Load(qm.Rels(dbmodels.AdminUserRels.User))).All(r.Context(), a.db)
+		if err != nil {
+			a.l.Error().Str("error-type", "error counting admin users").Str("admin-user-id", id).Err(err).Msg("")
+			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
+			return
+		}
+
+		if len(adms) == 0 {
+			a.writeJSON(w, http.StatusNotFound, envelope{}, nil)
+			return
+		}
+
+		if len(adms) > 1 {
+			a.l.Error().Str("error-type", "error id collision").Str("admin-user-id", id).Err(errors.New("admin user id collision")).Msg("")
+			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+			return
+		}
+
+		admin := adms[0]
+		admin.Admin = req.Admin
+
+		tx, err := a.db.BeginTx(r.Context(), &sql.TxOptions{})
+		if a.checkTransactionBeginError(w, err) {
+			return
+		}
+		_, err = admin.Update(r.Context(), tx, boil.Infer())
+		if err != nil {
+			if a.transactionRollback(w, tx) {
+				return
+			}
+			a.l.Error().Str("error-type", "error updating admin user").Err(err).Msg("")
+			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
+			return
+		}
+		if ok := a.transactionCommit(w, tx); ok {
+			return
+		}
+
+		resp := response{
+			Email: admin.R.User.Email,
+			Id:    admin.ID,
+			Admin: admin.Admin,
+		}
+
+		a.writeJSON(w, http.StatusOK, envelope{"admin-user": resp}, nil)
+	}
+}
+
+func (a *Server) handleOrgUserUpdatePassword() http.HandlerFunc {
+	type request struct {
+		Password string `json:"password" validate:"required"`
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "adminUserId")
+
+		var req request
+		err := a.readJSON(w, r, &req)
+
+		if a.checkExtraFieldsError(w, err) {
+			return
+		}
+		err = a.validator.Struct(req)
+		if a.checkValidationErrors(w, err) {
+			return
+		}
+
+		adms, err := dbmodels.AdminUsers(dbmodels.AdminUserWhere.ID.EQ(id), qm.Load(qm.Rels(dbmodels.AdminUserRels.User))).All(r.Context(), a.db)
+		if err != nil {
+			a.l.Error().Str("error-type", "error counting admin users").Str("admin-user-id", id).Err(err).Msg("")
+			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
+			return
+		}
+
+		if len(adms) == 0 {
+			a.writeJSON(w, http.StatusNotFound, envelope{}, nil)
+			return
+		}
+
+		if len(adms) > 1 {
+			a.l.Error().Str("error-type", "error id collision").Str("admin-user-id", id).Err(errors.New("admin user id collision")).Msg("")
+			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+			return
+		}
+
+		admin := adms[0]
+		abstract := admin.R.GetUser()
+
+		tx, err := a.db.BeginTx(r.Context(), &sql.TxOptions{})
+		if a.checkTransactionBeginError(w, err) {
+			return
+		}
+
+		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
+		if err != nil {
+			if a.transactionRollback(w, tx) {
+				return
+			}
+			a.l.Error().Str("error-type", "error creating hash from raw password").Err(err).Msg("")
+			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+			return
+		}
+
+		abstract.Password = string(hash)
+		_, err = abstract.Update(r.Context(), tx, boil.Infer())
+
+		if err != nil {
+			if a.transactionRollback(w, tx) {
+				return
+			}
+			a.l.Error().Str("error-type", "error creating hash from raw password").Err(err).Msg("")
+			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+			return
+		}
+		if ok := a.transactionCommit(w, tx); ok {
+			return
+		}
+
+		a.writeJSON(w, http.StatusOK, envelope{"status": fmt.Sprintf("Password for %s updated successfully", admin.R.User.Email)}, nil)
+	}
+}

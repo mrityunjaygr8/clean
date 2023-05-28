@@ -48,7 +48,6 @@ func (a *Server) routes() http.Handler {
 
 	router.Post("/ping", func(w http.ResponseWriter, r *http.Request) {
 		var req request
-		panic("asd")
 
 		a.readJSON(w, r, &req)
 

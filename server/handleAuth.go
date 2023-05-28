@@ -3,9 +3,7 @@ package server
 import (
 	"errors"
 	"net/http"
-	"strings"
 
-	"github.com/go-playground/validator/v10"
 	dbmodels "github.com/mrityunjaygr8/clean/db/models"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -27,22 +25,11 @@ func (a *Server) handleAuthLogin() http.HandlerFunc {
 		var req request
 
 		err := a.readJSON(w, r, &req)
-		if err != nil {
-			a.l.Error().Err(err).Msg("")
-			if strings.Contains(err.Error(), "unknown field") {
-				a.writeJSON(w, http.StatusBadRequest, envelope{"error": "The request contains unknown fields"}, nil)
-				return
-			}
+		if a.checkExtraFieldsError(w, err) {
+			return
 		}
 		err = a.validator.Struct(req)
-		if err != nil {
-			errResp := make(map[string]interface{})
-			for _, e := range err.(validator.ValidationErrors) {
-				errResp[e.Field()] = e.Translate(a.trans)
-			}
-
-			a.writeJSON(w, http.StatusBadRequest, envelope{"errors": errResp}, nil)
-
+		if a.checkValidationErrors(w, err) {
 			return
 		}
 
