@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	dbmodels "github.com/mrityunjaygr8/clean/db/models"
-	"github.com/teris-io/shortid"
+	"github.com/mrityunjaygr8/clean/internal/services"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 	"golang.org/x/crypto/bcrypt"
@@ -42,91 +42,25 @@ func (a *Server) handleAdminUserCreate() http.HandlerFunc {
 			return
 		}
 
-		exists, err := dbmodels.AbstractUsers(dbmodels.AbstractUserWhere.Email.EQ(req.Email)).Exists(r.Context(), tx)
+		service := services.NewAdminUserService(r.Context(), tx)
+
+		user, err := service.CreateAdminUser(req.Email, req.Password, req.Admin)
 		if err != nil {
-			if a.transactionRollback(w, tx) {
-				return
-			}
-			a.l.Error().Str("error-type", "error checking if abstract user exists").Err(err).Msg("")
-			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
-			return
-		}
-		if exists {
-			if a.transactionRollback(w, tx) {
-				return
-			}
-			a.writeJSON(w, http.StatusBadRequest, envelope{"error": "User with email already exists"}, nil)
-			return
-		}
-		var abstractUser dbmodels.AbstractUser
-		abstractUser.Email = req.Email
-
-		tmpId, err := shortid.Generate()
-		if err != nil {
-			if a.transactionRollback(w, tx) {
-				return
-			}
-			a.l.Error().Str("error-type", "error creating abstract id").Err(err).Msg("")
-			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
-			return
-		}
-		abstractUser.ID = tmpId
-
-		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
-		if err != nil {
-			if a.transactionRollback(w, tx) {
-				return
-			}
-			a.l.Error().Str("error-type", "error creating hash from raw password").Err(err).Msg("")
-			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+			a.l.Error().Err(err).Msg("User Exists")
+			errMsg := make(map[string]interface{})
+			errMsg["Email"] = err.Error()
+			a.writeJSON(w, http.StatusBadRequest, envelope{"errors": errMsg}, nil)
 			return
 		}
 
-		abstractUser.Password = string(hash)
-
-		err = abstractUser.Insert(r.Context(), tx, boil.Infer())
-		if err != nil {
-			if a.transactionRollback(w, tx) {
-				return
-			}
-			a.l.Error().Str("error-type", "error inserting abstract user").Err(err).Msg("")
-			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
-			return
-		}
-
-		var adminUser dbmodels.AdminUser
-		adminUser.Admin = req.Admin
-
-		tmpId, err = shortid.Generate()
-		if err != nil {
-			if a.transactionRollback(w, tx) {
-				return
-			}
-			a.l.Error().Str("error-type", "error creating admin id").Err(err).Msg("")
-			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
-			return
-		}
-
-		adminUser.ID = tmpId
-		adminUser.UserID = abstractUser.InternalID
-
-		err = adminUser.Insert(r.Context(), tx, boil.Infer())
-		if err != nil {
-			if a.transactionRollback(w, tx) {
-				return
-			}
-			a.l.Error().Str("error-type", "error inserting admin user").Err(err).Msg("")
-			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
-			return
-		}
 		if ok := a.transactionCommit(w, tx); ok {
 			return
 		}
 
 		resp := response{
-			Email: abstractUser.Email,
-			ID:    adminUser.ID,
-			Admin: adminUser.Admin,
+			Email: user.Email,
+			ID:    user.ID,
+			Admin: user.Admin,
 		}
 
 		a.writeJSON(w, http.StatusCreated, envelope{"admin-user": resp}, nil)
@@ -145,7 +79,8 @@ func (a *Server) handleAdminUserList() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		adms := make([]adminUser, 0)
 
-		adminUsers, err := dbmodels.AdminUsers(qm.Load(qm.Rels(dbmodels.AdminUserRels.User))).All(r.Context(), a.db)
+		service := services.NewAdminUserService(r.Context(), a.db)
+		adminUsers, err := service.List()
 		if err != nil {
 			a.l.Error().Str("error-type", "error listing admin users").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
@@ -155,7 +90,7 @@ func (a *Server) handleAdminUserList() http.HandlerFunc {
 		for _, adm := range adminUsers {
 			tmp := adminUser{}
 			tmp.Admin = adm.Admin
-			tmp.Email = adm.R.User.Email
+			tmp.Email = adm.Email
 			tmp.Id = adm.ID
 
 			adms = append(adms, tmp)

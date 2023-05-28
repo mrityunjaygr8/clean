@@ -39,12 +39,16 @@ func (a *Server) handleAbstractUserCreate() http.HandlerFunc {
 		if err != nil {
 			if _, ok := err.(services.ErrAbstractUserExists); ok {
 				a.l.Error().Err(err).Msg("User Exists")
-				a.writeJSON(w, http.StatusBadRequest, envelope{"error": err.Error()}, nil)
+				errMsg := make(map[string]interface{})
+				errMsg["Email"] = err.Error()
+				a.writeJSON(w, http.StatusBadRequest, envelope{"errors": errMsg}, nil)
 				return
 			}
 
-			a.l.Error().Err(err).Msg("")
-			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err.Error()}, nil)
+			a.l.Error().Err(err).Str("email", req.Email).Msg("")
+			errMsg := make(map[string]interface{})
+			errMsg["Extra"] = err.Error()
+			a.writeJSON(w, http.StatusInternalServerError, envelope{"errors": errMsg}, nil)
 			return
 		}
 		if ok := a.transactionCommit(w, tx); ok {
@@ -76,7 +80,9 @@ func (a *Server) handleAbstractUserList() http.HandlerFunc {
 		abstractUsers, err := service.List()
 		if err != nil {
 			a.l.Error().Err(err).Msg("")
-			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err.Error()}, nil)
+			errMsg := make(map[string]interface{})
+			errMsg["Extra"] = err.Error()
+			a.writeJSON(w, http.StatusInternalServerError, envelope{"errors": errMsg}, nil)
 			return
 		}
 
