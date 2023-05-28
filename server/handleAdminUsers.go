@@ -31,38 +31,22 @@ func (a *Server) handleAdminUserCreate() http.HandlerFunc {
 		var req request
 
 		err := a.readJSON(w, r, &req)
-		if err != nil {
-			a.l.Error().Err(err).Msg("")
-			if strings.Contains(err.Error(), "unknown field") {
-				a.writeJSON(w, http.StatusBadRequest, envelope{"error": "The request contains unknown fields"}, nil)
-				return
-			}
+		if a.checkExtraFieldsError(w, err) {
+			return
 		}
 		err = a.validator.Struct(req)
-		if err != nil {
-			errResp := make(map[string]interface{})
-			for _, e := range err.(validator.ValidationErrors) {
-				errResp[e.Field()] = e.Translate(a.trans)
-			}
-
-			a.writeJSON(w, http.StatusBadRequest, envelope{"errors": errResp}, nil)
-
+		if a.checkValidationErrors(w, err) {
 			return
 		}
 
 		tx, err := a.db.BeginTx(r.Context(), &sql.TxOptions{})
-		if err != nil {
-			a.l.Error().Str("error-type", "error creating transaction").Err(err).Msg("")
-			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+		if a.checkTransactionBeginError(w, err) {
 			return
 		}
 
 		exists, err := dbmodels.AbstractUsers(dbmodels.AbstractUserWhere.Email.EQ(req.Email)).Exists(r.Context(), tx)
 		if err != nil {
-			txRollErr := tx.Rollback()
-			if txRollErr != nil {
-				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
-				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+			if a.transactionRollback(w, tx) {
 				return
 			}
 			a.l.Error().Str("error-type", "error checking if abstract user exists").Err(err).Msg("")
@@ -70,10 +54,7 @@ func (a *Server) handleAdminUserCreate() http.HandlerFunc {
 			return
 		}
 		if exists {
-			txRollErr := tx.Rollback()
-			if txRollErr != nil {
-				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
-				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+			if a.transactionRollback(w, tx) {
 				return
 			}
 			a.writeJSON(w, http.StatusBadRequest, envelope{"error": "User with email already exists"}, nil)
@@ -84,10 +65,7 @@ func (a *Server) handleAdminUserCreate() http.HandlerFunc {
 
 		tmpId, err := shortid.Generate()
 		if err != nil {
-			txRollErr := tx.Rollback()
-			if txRollErr != nil {
-				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
-				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+			if a.transactionRollback(w, tx) {
 				return
 			}
 			a.l.Error().Str("error-type", "error creating abstract id").Err(err).Msg("")
@@ -98,10 +76,7 @@ func (a *Server) handleAdminUserCreate() http.HandlerFunc {
 
 		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
 		if err != nil {
-			txRollErr := tx.Rollback()
-			if txRollErr != nil {
-				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
-				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+			if a.transactionRollback(w, tx) {
 				return
 			}
 			a.l.Error().Str("error-type", "error creating hash from raw password").Err(err).Msg("")
@@ -113,10 +88,7 @@ func (a *Server) handleAdminUserCreate() http.HandlerFunc {
 
 		err = abstractUser.Insert(r.Context(), tx, boil.Infer())
 		if err != nil {
-			txRollErr := tx.Rollback()
-			if txRollErr != nil {
-				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
-				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+			if a.transactionRollback(w, tx) {
 				return
 			}
 			a.l.Error().Str("error-type", "error inserting abstract user").Err(err).Msg("")
@@ -129,10 +101,7 @@ func (a *Server) handleAdminUserCreate() http.HandlerFunc {
 
 		tmpId, err = shortid.Generate()
 		if err != nil {
-			txRollErr := tx.Rollback()
-			if txRollErr != nil {
-				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
-				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+			if a.transactionRollback(w, tx) {
 				return
 			}
 			a.l.Error().Str("error-type", "error creating admin id").Err(err).Msg("")
@@ -145,20 +114,14 @@ func (a *Server) handleAdminUserCreate() http.HandlerFunc {
 
 		err = adminUser.Insert(r.Context(), tx, boil.Infer())
 		if err != nil {
-			txRollErr := tx.Rollback()
-			if txRollErr != nil {
-				a.l.Error().Str("error-type", "error rolling back transaction").Err(txRollErr).Msg("")
-				a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+			if a.transactionRollback(w, tx) {
 				return
 			}
 			a.l.Error().Str("error-type", "error inserting admin user").Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
 			return
 		}
-		txCommitErr := tx.Commit()
-		if txCommitErr != nil {
-			a.l.Error().Str("error-type", "error committing transaction").Err(txCommitErr).Msg("")
-			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+		if ok := a.transactionCommit(w, tx); ok {
 			return
 		}
 
@@ -262,13 +225,14 @@ func (a *Server) handleAdminUserDelete() http.HandlerFunc {
 		abstractId := admin.R.User.ID
 
 		tx, err := a.db.BeginTx(r.Context(), &sql.TxOptions{})
-		if err != nil {
-			a.l.Error().Str("error-type", "error creating transaction").Err(err).Msg("")
-			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+		if a.checkTransactionBeginError(w, err) {
 			return
 		}
 		_, err = admin.Delete(r.Context(), tx)
 		if err != nil {
+			if a.transactionRollback(w, tx) {
+				return
+			}
 			a.l.Error().Str("error-type", "error deleting admin users").Str("admin-user-id", id).Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
 			return
@@ -276,15 +240,15 @@ func (a *Server) handleAdminUserDelete() http.HandlerFunc {
 
 		_, err = abstract.Delete(r.Context(), tx)
 		if err != nil {
+			if a.transactionRollback(w, tx) {
+				return
+			}
 			a.l.Error().Str("error-type", "error deleting abstract users").Str("abstract-user-id", abstractId).Err(err).Msg("")
 			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": err}, nil)
 			return
 		}
 
-		txCommitErr := tx.Commit()
-		if txCommitErr != nil {
-			a.l.Error().Str("error-type", "error committing transaction").Err(txCommitErr).Msg("")
-			a.writeJSON(w, http.StatusInternalServerError, envelope{"error": http.StatusText(http.StatusInternalServerError)}, nil)
+		if ok := a.transactionCommit(w, tx); ok {
 			return
 		}
 
